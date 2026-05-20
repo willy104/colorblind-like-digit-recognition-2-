@@ -121,33 +121,16 @@ def main():
     test_dataset = MyDataset(cfg.TEST_DIR, transform=eval_transform)
 
     use_persistent = cfg.NUM_WORKERS > 0
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=cfg.BATCH_SIZE,
-        shuffle=True,
-        num_workers=cfg.NUM_WORKERS,
-        pin_memory=True,
-        persistent_workers=use_persistent,
-        prefetch_factor=2 if use_persistent else None,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=cfg.BATCH_SIZE,
-        shuffle=False,
-        num_workers=cfg.NUM_WORKERS,
-        pin_memory=True,
-        persistent_workers=use_persistent,
-        prefetch_factor=2 if use_persistent else None,
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.BATCH_SIZE,
-        shuffle=False,
-        num_workers=cfg.NUM_WORKERS,
-        pin_memory=True,
-        persistent_workers=use_persistent,
-        prefetch_factor=2 if use_persistent else None,
-    )
+    common_loader_kwargs = {
+        "batch_size": cfg.BATCH_SIZE,
+        "num_workers": cfg.NUM_WORKERS,
+        "pin_memory": True,
+        "persistent_workers": use_persistent,
+        "prefetch_factor": 2 if use_persistent else None,
+    }
+    train_loader = DataLoader(train_dataset, shuffle=True, **common_loader_kwargs)
+    val_loader = DataLoader(val_dataset, shuffle=False, **common_loader_kwargs)
+    test_loader = DataLoader(test_dataset, shuffle=False, **common_loader_kwargs)
 
     # Model, loss, optimiser
     model = CNN().to(device)

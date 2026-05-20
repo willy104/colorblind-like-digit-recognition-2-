@@ -46,7 +46,7 @@ def plot_curves(
         plt.plot(epochs, test_losses, label="Test Loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
-    plt.title("Training vs Validation vs Test Loss")
+    plt.title("Training vs Validation vs Test Loss" if test_losses is not None else "Training vs Validation Loss")
     plt.legend()
     plt.savefig(os.path.join(output_dir, "loss_curve.png"))
     plt.close()
@@ -59,7 +59,11 @@ def plot_curves(
         plt.plot(epochs, test_accs, label="Test Accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy (%)")
-    plt.title("Training vs Validation vs Test Accuracy")
+    plt.title(
+        "Training vs Validation vs Test Accuracy"
+        if test_accs is not None
+        else "Training vs Validation Accuracy"
+    )
     plt.legend()
     plt.savefig(os.path.join(output_dir, "accuracy_curve.png"))
     plt.close()
@@ -67,7 +71,9 @@ def plot_curves(
 
 def save_epoch_metrics_to_excel(rows, output_path):
     """Save epoch metrics rows to an Excel file."""
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = "epoch_metrics"
