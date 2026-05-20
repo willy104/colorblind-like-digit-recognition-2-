@@ -216,3 +216,33 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AI model checkpoints
+*.pth
+*.pt
+*.ckpt
+
+# Training outputs
+outputs/
+checkpoints/
+logs/
+
+# Dataset
+data/
+
+# TensorBoard
+runs/
+
+# Large image datasets
+*.zip
+*.tar
+*.tar.gz
+
+# CUDA cache
+*.cuda
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
