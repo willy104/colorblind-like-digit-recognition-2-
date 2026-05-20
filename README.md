@@ -45,7 +45,18 @@ data/val/     ← 驗證集
 data/test/    ← 測試集
 ```
 
-若資料原在 Google Drive，可使用 `rclone` 或直接複製同步到本機。
+若資料在雲端，建議先同步到專案 `data/`，可用內建腳本：
+
+```bash
+python sync_cloud_data.py \
+  --source /path/to/cloud_mounted_dataset \
+  --target /home/runner/work/colorblind-like-digit-recognition-2-/colorblind-like-digit-recognition-2-/data
+```
+
+`--source` 需包含 `train/`、`val/`、`test/` 三個子資料夾。  
+腳本會只同步 `.png`，並檢查檔名是否符合 `digit_X_NNNNNN.png`。
+
+你也可以不複製到 `data/`，直接讓訓練程式讀「已掛載」的雲端目錄（見下方環境變數設定）。
 
 ### 3. 訓練
 
@@ -99,6 +110,21 @@ python infer.py --image path/to/example.png \
 | `EPOCHS` | 20 | 訓練總 epoch 數 |
 | `LEARNING_RATE` | 5e-4 | Adam 優化器學習率 |
 | `NUM_WORKERS` | CPU 核心數 | DataLoader 工作程序數 |
+
+### 資料路徑（支援雲端掛載路徑）
+
+程式支援以下環境變數（優先順序由高到低）：
+
+1. `TRAIN_DIR` / `VAL_DIR` / `TEST_DIR`
+2. `DATA_ROOT`（程式會自動接上 `train|val|test`）
+3. 預設：`<project>/data/train|val|test`
+
+範例（直接讀取掛載在本機的雲端目錄）：
+
+```bash
+export DATA_ROOT=/mnt/cloud/digit_dataset
+python train.py
+```
 
 ## 模型架構
 
