@@ -111,3 +111,4 @@ CNN 包含：
 ## GPU 支援
 
 程式自動偵測 CUDA；若無 GPU，則改用 CPU 運算（於 `config.py` 中的 `DEVICE` 設定）。
+
