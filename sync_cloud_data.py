@@ -26,9 +26,10 @@ def validate_filename(path: Path) -> bool:
     return bool(FILENAME_PATTERN.match(path.name))
 
 
-def sync_split(source_split_dir: Path, target_split_dir: Path):
+def sync_split(source_split_dir: Path, target_split_dir: Path, overwrite: bool):
     target_split_dir.mkdir(parents=True, exist_ok=True)
     copied = 0
+    skipped_existing = 0
     invalid = []
 
     for src in collect_png_files(source_split_dir):
@@ -37,10 +38,13 @@ def sync_split(source_split_dir: Path, target_split_dir: Path):
             continue
 
         dst = target_split_dir / src.name
+        if dst.exists() and not overwrite:
+            skipped_existing += 1
+            continue
         shutil.copy2(src, dst)
         copied += 1
 
-    return copied, invalid
+    return copied, skipped_existing, invalid
 
 
 def main():
@@ -57,6 +61,11 @@ def main():
         default=str(Path(__file__).resolve().parent / "data"),
         help="Target data root directory (default: <project>/data).",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing files in target splits.",
+    )
     args = parser.parse_args()
 
     source_root = Path(args.source).expanduser().resolve()
@@ -66,6 +75,7 @@ def main():
         raise FileNotFoundError(f"Source directory not found: {source_root}")
 
     total_copied = 0
+    total_skipped_existing = 0
     total_invalid = []
 
     for split in SPLITS:
@@ -74,12 +84,16 @@ def main():
             raise FileNotFoundError(f"Missing source split directory: {source_split}")
 
         target_split = target_root / split
-        copied, invalid = sync_split(source_split, target_split)
+        copied, skipped_existing, invalid = sync_split(source_split, target_split, args.overwrite)
         total_copied += copied
+        total_skipped_existing += skipped_existing
         total_invalid.extend(invalid)
-        print(f"[{split}] copied {copied} files -> {target_split}")
+        print(
+            f"[{split}] copied {copied} files, skipped existing {skipped_existing} -> {target_split}"
+        )
 
     print(f"Done. Total copied: {total_copied}")
+    print(f"Total skipped existing: {total_skipped_existing}")
     if total_invalid:
         print("\nFound invalid filenames (must match digit_X_NNNNNN.png):")
         for path in total_invalid:

@@ -50,7 +50,7 @@ data/test/    ← 測試集
 ```bash
 python sync_cloud_data.py \
   --source /path/to/cloud_mounted_dataset \
-  --target /home/runner/work/colorblind-like-digit-recognition-2-/colorblind-like-digit-recognition-2-/data
+  --target ./data
 ```
 
 `--source` 需包含 `train/`、`val/`、`test/` 三個子資料夾。  
