@@ -80,7 +80,7 @@ def main():
         raise FileNotFoundError(f"Checkpoint not found: {args.checkpoint}")
 
     logger.info("Loading checkpoint: %s", args.checkpoint)
-    load_checkpoint(args.checkpoint, model)
+    load_checkpoint(args.checkpoint, model, map_location=device)
 
     # Inference
     model.eval()

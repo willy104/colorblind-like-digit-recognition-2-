@@ -11,13 +11,13 @@ def save_checkpoint(state, checkpoint_dir, filename):
     return path
 
 
-def load_checkpoint(path, model, optimizer=None):
+def load_checkpoint(path, model, optimizer=None, map_location="cpu"):
     """Load a checkpoint and restore model (and optionally optimizer) state.
 
     Returns:
         dict: The full checkpoint dictionary (contains 'epoch', 'val_loss', etc.)
     """
-    checkpoint = torch.load(path, map_location="cpu")
+    checkpoint = torch.load(path, map_location=map_location)
     model.load_state_dict(checkpoint["model_state_dict"])
     if optimizer is not None and "optimizer_state_dict" in checkpoint:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])

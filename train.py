@@ -151,7 +151,7 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             logger.info("Resuming from checkpoint: %s", args.resume)
-            ckpt = load_checkpoint(args.resume, model, optimizer)
+            ckpt = load_checkpoint(args.resume, model, optimizer, map_location=device)
             start_epoch = ckpt.get("epoch", 0)
             best_val_loss = ckpt.get("val_loss", float("inf"))
             logger.info("Resumed at epoch %d, best val_loss=%.4f", start_epoch, best_val_loss)

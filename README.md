@@ -21,6 +21,7 @@ project/
 ├── model.py            # CNN 模型架構（ConvBlock + BatchNorm + AdaptiveAvgPool）
 ├── train.py            # 訓練流程（含驗證、checkpoint、繪圖等）
 ├── test.py             # 測試流程（載入最佳模型、混淆矩陣、分類報告）
+├── evaluate.py         # test.py 的評估入口別名（語意化命名）
 ├── infer.py            # 單圖推論 CLI
 ├── utils.py            # 工具函式（checkpoint 存取、繪圖）
 ├── requirements.txt    # Python 套件需求清單
@@ -66,6 +67,8 @@ python train.py --resume checkpoints/checkpoint_epoch10.pth
 ### 4. 測試
 
 ```bash
+python evaluate.py [--checkpoint checkpoints/best_model.pth]
+# 或
 python test.py [--checkpoint checkpoints/best_model.pth]
 ```
 
@@ -86,6 +89,11 @@ python infer.py --image path/to/example.png \
 
 ```
 預測類別 (0-9): 3
+預測機率: 0.9765
+Top-3 預測:
+  1. 類別 3: 0.9765
+  2. 類別 8: 0.0121
+  3. 類別 5: 0.0043
 ```
 
 ## 超參數設定
