@@ -14,7 +14,7 @@ import shutil
 from pathlib import Path
 
 
-FILENAME_PATTERN = re.compile(r"^digit_(?:[0-9])_[0-9]{6}\.png$")
+FILENAME_PATTERN = re.compile(r"^digit_[0-9]_[0-9]{6}\.png$")
 SPLITS = ("train", "val", "test")
 
 
