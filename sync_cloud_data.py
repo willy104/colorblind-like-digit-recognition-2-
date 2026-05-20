@@ -81,7 +81,10 @@ def main():
     for split in SPLITS:
         source_split = source_root / split
         if not source_split.exists():
-            raise FileNotFoundError(f"Missing source split directory: {source_split}")
+            raise FileNotFoundError(
+                f"Source split directory not found: {source_split}. "
+                "Ensure the source contains train/, val/, and test/ subdirectories."
+            )
 
         target_split = target_root / split
         copied, skipped_existing, invalid = sync_split(source_split, target_split, args.overwrite)
@@ -95,7 +98,10 @@ def main():
     print(f"Done. Total copied: {total_copied}")
     print(f"Total skipped existing: {total_skipped_existing}")
     if total_invalid:
-        print("\nFound invalid filenames (must match digit_[0-9]_NNNNNN.png):")
+        print(
+            "\nFound invalid filenames "
+            "(expected like digit_X_123456.png, where X is 0-9 and 123456 is 6 digits):"
+        )
         for path in total_invalid:
             print(f" - {path}")
         raise ValueError(f"Found {len(total_invalid)} invalid filename(s).")
