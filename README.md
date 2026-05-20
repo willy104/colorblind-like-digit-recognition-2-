@@ -54,7 +54,7 @@ python sync_cloud_data.py \
 ```
 
 `--source` 需包含 `train/`、`val/`、`test/` 三個子資料夾。  
-腳本會只同步 `.png`，並檢查檔名是否符合 `digit_X_NNNNNN.png`。
+腳本會只同步 `.png`，並檢查檔名是否符合 `digit_[0-9]_NNNNNN.png`（`[0-9]` 為類別，`NNNNNN` 為 6 位數字）。
 
 你也可以不複製到 `data/`，直接讓訓練程式讀「已掛載」的雲端目錄（見下方環境變數設定）。
 

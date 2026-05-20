@@ -14,7 +14,7 @@ import shutil
 from pathlib import Path
 
 
-FILENAME_PATTERN = re.compile(r"^digit_([0-9])_\d+\.png$")
+FILENAME_PATTERN = re.compile(r"^digit_(?:[0-9])_[0-9]{6}\.png$")
 SPLITS = ("train", "val", "test")
 
 
@@ -95,7 +95,7 @@ def main():
     print(f"Done. Total copied: {total_copied}")
     print(f"Total skipped existing: {total_skipped_existing}")
     if total_invalid:
-        print("\nFound invalid filenames (must match digit_X_NNNNNN.png):")
+        print("\nFound invalid filenames (must match digit_[0-9]_NNNNNN.png):")
         for path in total_invalid:
             print(f" - {path}")
         raise ValueError(f"Found {len(total_invalid)} invalid filename(s).")

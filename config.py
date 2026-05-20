@@ -22,9 +22,17 @@ AVG_EVERY = 20  # log average loss/accuracy every N batches
 # 2) DATA_ROOT env var + split name
 # 3) <project>/data/<split>
 DATA_ROOT = os.getenv("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
-TRAIN_DIR = os.path.abspath(os.path.expanduser(os.getenv("TRAIN_DIR", os.path.join(DATA_ROOT, "train"))))
-VAL_DIR = os.path.abspath(os.path.expanduser(os.getenv("VAL_DIR", os.path.join(DATA_ROOT, "val"))))
-TEST_DIR = os.path.abspath(os.path.expanduser(os.getenv("TEST_DIR", os.path.join(DATA_ROOT, "test"))))
+
+
+def _resolve_split_dir(split_name):
+    env_key = f"{split_name.upper()}_DIR"
+    default_path = os.path.join(DATA_ROOT, split_name)
+    return os.path.abspath(os.path.expanduser(os.getenv(env_key, default_path)))
+
+
+TRAIN_DIR = _resolve_split_dir("train")
+VAL_DIR = _resolve_split_dir("val")
+TEST_DIR = _resolve_split_dir("test")
 
 # Output directories
 CHECKPOINT_DIR = os.path.join(PROJECT_ROOT, "checkpoints")
