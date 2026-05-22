@@ -56,7 +56,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
     total_samples = 0
 
     for images, labels in loader:
-        images, labels = images.to(device), labels.to(device)
+        images, labels = images.to(device, non_blocking=True), labels.to(device, non_blocking=True)
 
         optimizer.zero_grad()
         outputs = model(images)
@@ -83,7 +83,7 @@ def validate(model, loader, criterion, device):
 
     with torch.no_grad():
         for images, labels in loader:
-            images, labels = images.to(device), labels.to(device)
+            images, labels = images.to(device, non_blocking=True), labels.to(device, non_blocking=True)
             outputs = model(images)
             loss = criterion(outputs, labels)
 
