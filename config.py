@@ -24,7 +24,7 @@ LOG_DIR = "logs"
 OUTPUT_DIR = "outputs"
 
 # DataLoader settings
-NUM_WORKERS = os.cpu_count() or 4
+NUM_WORKERS = 4
 
 # Device
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
