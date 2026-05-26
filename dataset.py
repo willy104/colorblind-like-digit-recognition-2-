@@ -44,7 +44,6 @@ class MyDataset(Dataset):
 # Shared transforms
 train_transform = transforms.Compose([
     transforms.Resize((cfg.IMAGE_SIZE, cfg.IMAGE_SIZE)),
-    transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize(cfg.MEAN, cfg.STD),
 ])
