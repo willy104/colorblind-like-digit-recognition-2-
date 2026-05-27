@@ -39,8 +39,9 @@ OUTPUT_DIR = "outputs"
 # DataLoader settings
 NUM_WORKERS = 4
 '''
-每個 worker 預先載入 NUM_WORKERS 個 batch 放在 queue 裡等主行程來讀取，GPU 訓練時比較不容易「等資料」，配合後續 prefetch。
-最終共預先準備 prefetch_factor * NUM_WORKERS 個 batch
+NUM_WORKERS 代表有幾個子程序負責資料載入，每個 worker 會預先載入 prefetch_factor 個 batch，
+有助於 GPU 訓練時不用「等待資料」。
+總共會預先準備 NUM_WORKERS * prefetch_factor 個 batch。
 '''
 
 # Device
