@@ -1,3 +1,5 @@
+# .gitignore 用來設定哪些需要忽略版本控制
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
