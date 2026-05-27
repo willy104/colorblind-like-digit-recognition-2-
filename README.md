@@ -61,8 +61,8 @@ python train.py --resume checkpoints/checkpoint_epoch10.pth
 - 每個 epoch 自動儲存 checkpoint 至 `checkpoints/`
 - 驗證 loss 最低時更新 `checkpoints/best_model.pth`
 - Log 輸出至終端與 `logs/train.log`
-- 訓練結束後，損失與準確度曲線圖（含 train/val/test）儲存至 `outputs/`
-- 每個 epoch 的 train/val/test 指標會彙整輸出至 `outputs/epoch_metrics.xlsx`
+- 訓練結束後，損失與準確度曲線圖（train/val）儲存至 `outputs/`
+- 每個 epoch 的 train/val 指標會彙整輸出至 `outputs/epoch_metrics.xlsx`
 
 ### 4. 測試
 

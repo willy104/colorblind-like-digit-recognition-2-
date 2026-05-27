@@ -118,7 +118,6 @@ def main():
     # Datasets & loaders
     train_dataset = MyDataset(cfg.TRAIN_DIR, transform=train_transform)
     val_dataset = MyDataset(cfg.VAL_DIR, transform=eval_transform)
-    test_dataset = MyDataset(cfg.TEST_DIR, transform=eval_transform)
 
     use_persistent = cfg.NUM_WORKERS > 0
     common_loader_kwargs = {
@@ -130,7 +129,6 @@ def main():
     }
     train_loader = DataLoader(train_dataset, shuffle=True, **common_loader_kwargs)
     val_loader = DataLoader(val_dataset, shuffle=False, **common_loader_kwargs)
-    test_loader = DataLoader(test_dataset, shuffle=False, **common_loader_kwargs)
 
     # Model, loss, optimiser
     model = CNN().to(device)
@@ -153,22 +151,17 @@ def main():
 
     # Training loop
     train_losses, val_losses = [], []
-    test_losses = []
     train_accs, val_accs = [], []
-    test_accs = []
     epoch_metrics_rows = []
 
     for epoch in range(start_epoch + 1, cfg.EPOCHS + 1):
         train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device)
         val_loss, val_acc = validate(model, val_loader, criterion, device)
-        test_loss, test_acc = validate(model, test_loader, criterion, device)
 
         train_losses.append(train_loss)
         val_losses.append(val_loss)
-        test_losses.append(test_loss)
         train_accs.append(train_acc)
         val_accs.append(val_acc)
-        test_accs.append(test_acc)
         epoch_metrics_rows.append(
             {
                 "epoch": epoch,
@@ -176,23 +169,18 @@ def main():
                 "train_acc": train_acc,
                 "val_loss": val_loss,
                 "val_acc": val_acc,
-                "test_loss": test_loss,
-                "test_acc": test_acc,
             }
         )
 
         logger.info(
             "Epoch [%d/%d] | Train Loss: %.4f | Train Acc: %.2f%% | "
-            "Val Loss: %.4f | Val Acc: %.2f%% | "
-            "Test Loss: %.4f | Test Acc: %.2f%%",
+            "Val Loss: %.4f | Val Acc: %.2f%%",
             epoch,
             cfg.EPOCHS,
             train_loss,
             train_acc,
             val_loss,
             val_acc,
-            test_loss,
-            test_acc,
         )
 
         # Save per-epoch checkpoint
@@ -234,8 +222,6 @@ def main():
         train_accs,
         val_accs,
         cfg.OUTPUT_DIR,
-        test_losses=test_losses,
-        test_accs=test_accs,
     )
     metrics_excel_path = os.path.join(cfg.OUTPUT_DIR, "epoch_metrics.xlsx")
     save_epoch_metrics_to_excel(epoch_metrics_rows, metrics_excel_path)
