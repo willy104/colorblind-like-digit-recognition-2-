@@ -157,7 +157,7 @@ def main():
     for epoch in range(start_epoch + 1, cfg.EPOCHS + 1):
         train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device)
         val_loss, val_acc = validate(model, val_loader, criterion, device)
-    
+
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         train_accs.append(train_acc)
