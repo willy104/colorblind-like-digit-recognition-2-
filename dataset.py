@@ -6,11 +6,11 @@ import config as cfg
 
 
 class MyDataset(Dataset):
-    """Custom Dataset that loads digit images from a directory.
-
-    Expected filename format: digit_X_NNNNNN.png
-    where X is the digit label (0-9), e.g. digit_3_000123.png -> label=3.
-    """
+    '''
+    讀取訓練圖做分類並標記 label
+    訓練圖的檔名：digit_X_NNNNNN.png ( X：(0~9) )
+    e.g. digit_3_000123.png -> label=3
+    '''
 
     def __init__(self, root_dir, transform=None):
         self.root_dir = root_dir
@@ -41,7 +41,7 @@ class MyDataset(Dataset):
         return image, label
 
 
-# Shared transforms
+# Shared transforms 訓練圖預處理
 train_transform = transforms.Compose([
     transforms.Resize((cfg.IMAGE_SIZE, cfg.IMAGE_SIZE)),
     transforms.ToTensor(),
