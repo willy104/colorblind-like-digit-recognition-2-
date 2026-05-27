@@ -1,11 +1,13 @@
-"""infer.py — Single-image inference CLI for the digit-recognition CNN.
+'''
+建立一個指令腳本可辨識「單張圖」
 
-Usage:
+指令 Usage：
     python infer.py --image path/to/image.png
-                    [--checkpoint checkpoints/best_model.pth]
+                    [--checkpoint checkpoints/best_model.pth]  # 指定模型的 checkpoint 檔案
 
-The predicted digit (0–9) is printed to stdout.
-"""
+執行結果輸出：
+腳本會將預測的數字（0~9）直接印出
+'''
 
 import argparse
 import os
@@ -20,14 +22,15 @@ from utils import load_checkpoint
 
 
 def predict(image_path, checkpoint_path, device):
-    """Load model, preprocess a single image, and return the predicted label."""
+    # Load model, image 預處理, 回傳預測值
+    
     # Load model
     model = CNN().to(device)
 
     if not os.path.isfile(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
     load_checkpoint(checkpoint_path, model)
-    model.eval()
+    model.eval()  # predict 時不會更新權重
 
     # Preprocess image
     image = Image.open(image_path).convert("RGB")
