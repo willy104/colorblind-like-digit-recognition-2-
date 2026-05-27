@@ -83,8 +83,6 @@ def save_epoch_metrics_to_excel(rows, output_path):
         "train_acc",
         "val_loss",
         "val_acc",
-        "test_loss",
-        "test_acc",
     ])
     for row in rows:
         worksheet.append([
@@ -93,7 +91,5 @@ def save_epoch_metrics_to_excel(rows, output_path):
             row["train_acc"],
             row["val_loss"],
             row["val_acc"],
-            row["test_loss"],
-            row["test_acc"],
         ])
     workbook.save(output_path)
