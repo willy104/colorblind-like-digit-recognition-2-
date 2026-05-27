@@ -174,7 +174,7 @@ def main():
 
         logger.info(
             "Epoch [%d/%d] | Train Loss: %.4f | Train Acc: %.2f%% | "
-            "Val Loss: %.4f | Val Acc: %.2f%% | ",
+            "Val Loss: %.4f | Val Acc: %.2f%%",
             epoch,
             cfg.EPOCHS,
             train_loss,
