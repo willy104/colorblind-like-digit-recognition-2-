@@ -25,11 +25,21 @@ EPOCHS = 20
 LEARNING_RATE = 5e-4
 NUM_CLASSES = 10  # 最後輸出為 0~9 十種
 AVG_EVERY = 20  # log average loss/accuracy every N batches
+SEED = 42
+SUBSET_SIZE = 2000
 
 # Data paths (relative to project root)
-TRAIN_DIR = os.path.join("data", "train")
-VAL_DIR = os.path.join("data", "val")
-TEST_DIR = os.path.join("data", "test")
+DATA_DIR = "data"
+DOMAINS = ("A", "B", "C")
+
+
+def get_domain_split_dir(domain, split):
+    domain = domain.upper()
+    if domain not in DOMAINS:
+        raise ValueError(f"Unsupported domain '{domain}'. Expected one of {DOMAINS}.")
+    if split not in {"train", "val", "test"}:
+        raise ValueError(f"Unsupported split '{split}'. Expected train/val/test.")
+    return os.path.join(DATA_DIR, domain, split)
 
 # Output directories
 CHECKPOINT_DIR = "checkpoints"

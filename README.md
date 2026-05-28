@@ -8,9 +8,18 @@
 project/
 │
 ├── data/
-│   ├── train/          # 訓練圖片（digit_X_NNNNNN.png 格式）
-│   ├── val/            # 驗證圖片
-│   └── test/           # 測試圖片
+│   ├── A/
+│   │   ├── train/
+│   │   ├── val/
+│   │   └── test/
+│   ├── B/
+│   │   ├── train/
+│   │   ├── val/
+│   │   └── test/
+│   └── C/
+│       ├── train/
+│       ├── val/
+│       └── test/
 │
 ├── checkpoints/        # 每個 epoch 的 checkpoint 與最佳模型
 ├── logs/               # 訓練與測試 log 記錄
@@ -19,8 +28,9 @@ project/
 ├── config.py           # 超參數與路徑集中設定
 ├── dataset.py          # 自訂 Dataset 與資料前處理
 ├── model.py            # CNN 模型架構（ConvBlock + BatchNorm + AdaptiveAvgPool）
-├── train.py            # 訓練流程（含驗證、checkpoint、繪圖等）
-├── test.py             # 測試流程（載入最佳模型、混淆矩陣、分類報告）
+├── train.py            # 訓練流程（含 train-probe + A/B/C 驗證）
+├── val.py              # 通用 evaluate/eval_loop
+├── test.py             # 測試流程（載入最佳模型、A/B/C test 評估）
 ├── infer.py            # 單圖推論 CLI
 ├── utils.py            # 工具函式（checkpoint 存取、繪圖）
 ├── requirements.txt    # Python 套件需求清單
@@ -40,9 +50,9 @@ pip install -r requirements.txt
 將圖片放入對應資料夾，檔名格式必須為 `digit_X_NNNNNN.png`（例如 `digit_3_000123.png`）：
 
 ```
-data/train/   ← 訓練集
-data/val/     ← 驗證集
-data/test/    ← 測試集
+data/A/train, data/A/val, data/A/test
+data/B/train, data/B/val, data/B/test
+data/C/train, data/C/val, data/C/test
 ```
 
 若資料原在 Google Drive，可使用 `rclone` 或直接複製同步到本機。
@@ -50,31 +60,36 @@ data/test/    ← 測試集
 ### 3. 訓練
 
 ```bash
-# 全新訓練
-python train.py
+# 訓練 domain A/B/C 各自模型
+python train.py --domain A
+python train.py --domain B
+python train.py --domain C
 
 # 從 checkpoint 續訓
-python train.py --resume checkpoints/checkpoint_epoch10.pth
+python train.py --domain A --resume checkpoints/checkpoint_A_epoch10.pth
 ```
 
 訓練過程中：
-- 每個 epoch 自動儲存 checkpoint 至 `checkpoints/`
-- 驗證 loss 最低時更新 `checkpoints/best_model.pth`
-- Log 輸出至終端與 `logs/train.log`
-- 訓練結束後，損失與準確度曲線圖（train/val）儲存至 `outputs/`
-- 每個 epoch 的 train/val 指標會彙整輸出至 `outputs/epoch_metrics.xlsx`
+- 每個 epoch 自動儲存 checkpoint 至 `checkpoints/checkpoint_<domain>_epoch{n}.pth`
+- 以「訓練 domain 的 val 子集」loss 最低更新 `checkpoints/best_model_<domain>.pth`
+- Log 輸出至終端與 `logs/train_<domain>.log`
+- 每個 epoch 會記錄 train、train-probe(固定 2000) 與 valA/valB/valC(各固定 2000) 的 loss/acc
+- 固定子集檔名清單儲存於 `outputs/splits/`
+- 每個 epoch 指標輸出至 `outputs/epoch_metrics.xlsx`
 
 ### 4. 測試
 
 ```bash
-python test.py [--checkpoint checkpoints/best_model.pth]
+python test.py --domain A
+# 或指定 checkpoint
+python test.py --checkpoint checkpoints/best_model_A.pth
 ```
 
 輸出：
-- 整體 Accuracy
-- 各類別 precision / recall / F1 分類報告
-- 混淆矩陣圖（儲存於 `outputs/confusion_matrix.png`）
-- Log 儲存至 `logs/test.log`
+- A/B/C 三個 domain 各自的 Accuracy 與 Loss（full test set）
+- 各 domain 分類報告
+- 各 domain 混淆矩陣（`outputs/confusion_matrix_A.png` 等）
+- Log 儲存至 `logs/test_<domain>.log`
 
 ### 5. 單圖推論
 

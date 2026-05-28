@@ -1,19 +1,9 @@
-'''
-train.py — 訓練Training 和 驗證validation loop
-
-Usage：
-    python train.py [--resume checkpoints/checkpoint_epoch10.pth]  # 有檢查點
-
-The script：
-  1. train 訓練圖資料源：data/train 和 validation 驗證圖資料源：data/val
-  2. Trains the CNN for cfg.EPOCHS epochs with validation after each epoch  # 訓練共 cfg.EPOCHS 個 epochs 且 每個 epochs 後會驗證一次
-  3. Saves a checkpoint every epoch and keeps the best model (lowest val loss)  # 每個 epochs 後會儲存檢查點 且 保留最佳模型（lowest val_loss）
-  4. Writes logs to logs/train.log and saves loss/accuracy plots to outputs/  # 紀錄 logs 
-'''
+"""train.py — multi-domain training with per-epoch probe/validation metrics."""
 
 import argparse
 import logging
 import os
+import random
 
 import torch
 import torch.nn as nn
@@ -24,30 +14,53 @@ import config as cfg
 from dataset import MyDataset, train_transform, eval_transform
 from model import CNN
 from utils import load_checkpoint, plot_curves, save_checkpoint, save_epoch_metrics_to_excel
+from val import eval_loop
 
 
-# ---------------------------------------------------------------------------
-# Logging setup
-# ---------------------------------------------------------------------------
-
-os.makedirs(cfg.LOG_DIR, exist_ok=True)
-os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(cfg.LOG_DIR, "train.log")),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger(__name__)
+def set_seed(seed):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
-# ---------------------------------------------------------------------------
-# One-epoch helpers
-# ---------------------------------------------------------------------------
+def get_or_create_subset_filenames(root_dir, split_file_path, sample_size, seed):
+    os.makedirs(os.path.dirname(split_file_path), exist_ok=True)
+    all_files = sorted([f for f in os.listdir(root_dir) if f.lower().endswith(".png")])
+    if len(all_files) < sample_size:
+        raise ValueError(
+            f"Not enough images in {root_dir}. "
+            f"Need {sample_size}, found {len(all_files)}."
+        )
+
+    if os.path.isfile(split_file_path):
+        with open(split_file_path, "r", encoding="utf-8") as file_obj:
+            selected = [line.strip() for line in file_obj if line.strip()]
+        missing = [name for name in selected if name not in all_files]
+        if missing:
+            raise ValueError(
+                f"Split file {split_file_path} contains files that do not exist in {root_dir}."
+            )
+        return selected
+
+    rng = random.Random(seed)
+    selected = sorted(rng.sample(all_files, sample_size))
+    with open(split_file_path, "w", encoding="utf-8") as file_obj:
+        file_obj.write("\n".join(selected) + "\n")
+    return selected
+
+
+def make_loader(dataset, shuffle):
+    use_persistent = cfg.NUM_WORKERS > 0
+    loader_kwargs = {
+        "batch_size": cfg.BATCH_SIZE,
+        "num_workers": cfg.NUM_WORKERS,
+        "pin_memory": True,
+        "persistent_workers": use_persistent,
+        "prefetch_factor": 2 if use_persistent else None,
+    }
+    return DataLoader(dataset, shuffle=shuffle, **loader_kwargs)
+
 
 def train_one_epoch(model, loader, criterion, optimizer, device):
     """Run one training epoch and return (avg_loss, accuracy %)."""
@@ -57,7 +70,8 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
     total_samples = 0
 
     for images, labels in loader:
-        images, labels = images.to(device, non_blocking=True), labels.to(device, non_blocking=True)
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
 
         optimizer.zero_grad()
         outputs = model(images)
@@ -75,35 +89,32 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
     return avg_loss, accuracy
 
 
-def validate(model, loader, criterion, device):
-    """Run validation and return (avg_loss, accuracy %)."""
-    model.eval()
-    total_loss = 0.0
-    total_correct = 0
-    total_samples = 0
+def setup_logger(domain):
+    os.makedirs(cfg.LOG_DIR, exist_ok=True)
+    logger = logging.getLogger("train")
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-    with torch.no_grad():
-        for images, labels in loader:
-            images, labels = images.to(device, non_blocking=True), labels.to(device, non_blocking=True)
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+    file_handler = logging.FileHandler(os.path.join(cfg.LOG_DIR, f"train_{domain}.log"))
+    file_handler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
 
-            total_loss += loss.item() * labels.size(0)
-            _, predicted = torch.max(outputs, 1)
-            total_correct += (predicted == labels).sum().item()
-            total_samples += labels.size(0)
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+    return logger
 
-    avg_loss = total_loss / total_samples
-    accuracy = 100.0 * total_correct / total_samples
-    return avg_loss, accuracy
-
-
-# ---------------------------------------------------------------------------
-# Main training routine
-# ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="Train digit-recognition CNN")
+    parser.add_argument(
+        "--domain",
+        type=str,
+        default="A",
+        choices=cfg.DOMAINS,
+        help="Training domain: A, B, or C.",
+    )
     parser.add_argument(
         "--resume",
         type=str,
@@ -113,25 +124,55 @@ def main():
     )
     args = parser.parse_args()
 
+    domain = args.domain.upper()
+    logger = setup_logger(domain)
+    set_seed(cfg.SEED)
+
+    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+    os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
+
     device = cfg.DEVICE
     logger.info("Using device: %s", device)
+    logger.info("Training domain: %s", domain)
 
-    # Datasets & loaders
-    train_dataset = MyDataset(cfg.TRAIN_DIR, transform=train_transform)
-    val_dataset = MyDataset(cfg.VAL_DIR, transform=eval_transform)
+    train_dir = cfg.get_domain_split_dir(domain, "train")
 
-    use_persistent = cfg.NUM_WORKERS > 0
-    common_loader_kwargs = {
-        "batch_size": cfg.BATCH_SIZE,
-        "num_workers": cfg.NUM_WORKERS,
-        "pin_memory": True,
-        "persistent_workers": use_persistent,
-        "prefetch_factor": 2 if use_persistent else None,
+    splits_dir = os.path.join(cfg.OUTPUT_DIR, "splits")
+
+    train_probe_files = get_or_create_subset_filenames(
+        train_dir,
+        os.path.join(splits_dir, f"train_probe_{domain}.txt"),
+        cfg.SUBSET_SIZE,
+        cfg.SEED,
+    )
+    val_subset_files = {}
+    for val_domain in cfg.DOMAINS:
+        val_dir = cfg.get_domain_split_dir(val_domain, "val")
+        val_subset_files[val_domain] = get_or_create_subset_filenames(
+            val_dir,
+            os.path.join(splits_dir, f"val_{val_domain}.txt"),
+            cfg.SUBSET_SIZE,
+            cfg.SEED,
+        )
+
+    train_dataset = MyDataset(train_dir, transform=train_transform)
+    train_probe_dataset = MyDataset(train_dir, transform=eval_transform, file_list=train_probe_files)
+    val_datasets = {
+        val_domain: MyDataset(
+            cfg.get_domain_split_dir(val_domain, "val"),
+            transform=eval_transform,
+            file_list=val_subset_files[val_domain],
+        )
+        for val_domain in cfg.DOMAINS
     }
-    train_loader = DataLoader(train_dataset, shuffle=True, **common_loader_kwargs)
-    val_loader = DataLoader(val_dataset, shuffle=False, **common_loader_kwargs)
 
-    # Model, loss, optimiser
+    train_loader = make_loader(train_dataset, shuffle=True)
+    train_probe_loader = make_loader(train_probe_dataset, shuffle=False)
+    val_loaders = {
+        val_domain: make_loader(dataset, shuffle=False)
+        for val_domain, dataset in val_datasets.items()
+    }
+
     model = CNN().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=cfg.LEARNING_RATE)
@@ -139,7 +180,6 @@ def main():
     start_epoch = 0
     best_val_loss = float("inf")
 
-    # Resume from checkpoint if requested
     if args.resume:
         if os.path.isfile(args.resume):
             logger.info("Resuming from checkpoint: %s", args.resume)
@@ -150,78 +190,101 @@ def main():
         else:
             logger.warning("Checkpoint not found: %s — starting from scratch.", args.resume)
 
-    # Training loop
-    train_losses, val_losses = [], []
-    train_accs, val_accs = [], []
+    train_losses, selected_val_losses = [], []
+    train_accs, selected_val_accs = [], []
     epoch_metrics_rows = []
 
     for epoch in range(start_epoch + 1, cfg.EPOCHS + 1):
         train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device)
-        val_loss, val_acc = validate(model, val_loader, criterion, device)
+        train_probe_loss, train_probe_acc = eval_loop(model, train_probe_loader, criterion, device)
+
+        val_metrics = {}
+        for val_domain in cfg.DOMAINS:
+            val_loss, val_acc = eval_loop(model, val_loaders[val_domain], criterion, device)
+            val_metrics[val_domain] = {"loss": val_loss, "acc": val_acc}
+
+        selected_val_loss = val_metrics[domain]["loss"]
+        selected_val_acc = val_metrics[domain]["acc"]
 
         train_losses.append(train_loss)
-        val_losses.append(val_loss)
+        selected_val_losses.append(selected_val_loss)
         train_accs.append(train_acc)
-        val_accs.append(val_acc)
-        epoch_metrics_rows.append(
-            {
-                "epoch": epoch,
-                "train_loss": train_loss,
-                "train_acc": train_acc,
-                "val_loss": val_loss,
-                "val_acc": val_acc,
-            }
-        )
+        selected_val_accs.append(selected_val_acc)
+
+        row = {
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "train_acc": train_acc,
+            "train_probe_loss": train_probe_loss,
+            "train_probe_acc": train_probe_acc,
+            "valA_loss": val_metrics["A"]["loss"],
+            "valA_acc": val_metrics["A"]["acc"],
+            "valB_loss": val_metrics["B"]["loss"],
+            "valB_acc": val_metrics["B"]["acc"],
+            "valC_loss": val_metrics["C"]["loss"],
+            "valC_acc": val_metrics["C"]["acc"],
+        }
+        epoch_metrics_rows.append(row)
 
         logger.info(
-            "Epoch [%d/%d] | Train Loss: %.4f | Train Acc: %.2f%% | "
-            "Val Loss: %.4f | Val Acc: %.2f%%",
+            (
+                "Epoch [%d/%d] | Train Loss: %.4f | Train Acc: %.2f%% | "
+                "Train-Probe Loss: %.4f | Train-Probe Acc: %.2f%% | "
+                "ValA Loss: %.4f | ValA Acc: %.2f%% | "
+                "ValB Loss: %.4f | ValB Acc: %.2f%% | "
+                "ValC Loss: %.4f | ValC Acc: %.2f%%"
+            ),
             epoch,
             cfg.EPOCHS,
             train_loss,
             train_acc,
-            val_loss,
-            val_acc,
+            train_probe_loss,
+            train_probe_acc,
+            row["valA_loss"],
+            row["valA_acc"],
+            row["valB_loss"],
+            row["valB_acc"],
+            row["valC_loss"],
+            row["valC_acc"],
         )
 
-        # Save per-epoch checkpoint
         checkpoint_path = save_checkpoint(
             {
                 "epoch": epoch,
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "train_loss": train_loss,
-                "val_loss": val_loss,
-                "val_acc": val_acc,
+                "val_loss": selected_val_loss,
+                "val_acc": selected_val_acc,
+                "domain": domain,
             },
             cfg.CHECKPOINT_DIR,
-            f"checkpoint_epoch{epoch}.pth",
+            f"checkpoint_{domain}_epoch{epoch}.pth",
         )
         logger.info("Checkpoint saved: %s", checkpoint_path)
 
-        # Keep best model
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if selected_val_loss < best_val_loss:
+            best_val_loss = selected_val_loss
             best_path = save_checkpoint(
                 {
                     "epoch": epoch,
                     "model_state_dict": model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "train_loss": train_loss,
-                    "val_loss": val_loss,
-                    "val_acc": val_acc,
+                    "val_loss": selected_val_loss,
+                    "val_acc": selected_val_acc,
+                    "domain": domain,
                 },
                 cfg.CHECKPOINT_DIR,
-                "best_model.pth",
+                f"best_model_{domain}.pth",
             )
             logger.info("New best model saved: %s (val_loss=%.4f)", best_path, best_val_loss)
 
-    # Save loss/accuracy plots
     plot_curves(
         train_losses,
-        val_losses,
+        selected_val_losses,
         train_accs,
-        val_accs,
+        selected_val_accs,
         cfg.OUTPUT_DIR,
     )
     metrics_excel_path = os.path.join(cfg.OUTPUT_DIR, "epoch_metrics.xlsx")

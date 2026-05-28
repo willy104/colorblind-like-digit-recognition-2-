@@ -77,19 +77,11 @@ def save_epoch_metrics_to_excel(rows, output_path):
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = "epoch_metrics"
-    worksheet.append([
-        "epoch",
-        "train_loss",
-        "train_acc",
-        "val_loss",
-        "val_acc",
-    ])
+    if not rows:
+        workbook.save(output_path)
+        return
+    headers = list(rows[0].keys())
+    worksheet.append(headers)
     for row in rows:
-        worksheet.append([
-            row["epoch"],
-            row["train_loss"],
-            row["train_acc"],
-            row["val_loss"],
-            row["val_acc"],
-        ])
+        worksheet.append([row.get(header) for header in headers])
     workbook.save(output_path)

@@ -1,121 +1,126 @@
-"""test.py — Evaluate the best model on the test set.
-
-Usage:
-    python test.py [--checkpoint checkpoints/best_model.pth]
-
-The script:
-  1. Loads the test dataset from data/test.
-  2. Loads model weights from the specified checkpoint (default: best_model.pth).
-  3. Computes overall accuracy and per-class classification report.
-  4. Saves a confusion matrix image to outputs/confusion_matrix.png.
-  5. Writes a test log to logs/test.log.
-"""
+"""test.py — Evaluate checkpoint on A/B/C full test sets."""
 
 import argparse
 import logging
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.nn as nn
+from sklearn.metrics import ConfusionMatrixDisplay, classification_report, confusion_matrix
 from torch.utils.data import DataLoader
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
-import matplotlib.pyplot as plt
 
 import config as cfg
 from dataset import MyDataset, eval_transform
 from model import CNN
 from utils import load_checkpoint
+from val import evaluate
 
 
-# ---------------------------------------------------------------------------
-# Logging setup
-# ---------------------------------------------------------------------------
+def setup_logger(domain):
+    os.makedirs(cfg.LOG_DIR, exist_ok=True)
+    logger = logging.getLogger("test")
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-os.makedirs(cfg.LOG_DIR, exist_ok=True)
-os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+    file_handler = logging.FileHandler(os.path.join(cfg.LOG_DIR, f"test_{domain}.log"))
+    file_handler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(cfg.LOG_DIR, "test.log")),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger(__name__)
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+    return logger
 
 
-# ---------------------------------------------------------------------------
-# Main evaluation routine
-# ---------------------------------------------------------------------------
-
-def main():
-    parser = argparse.ArgumentParser(description="Evaluate digit-recognition CNN on test set")
-    parser.add_argument(
-        "--checkpoint",
-        type=str,
-        default=os.path.join(cfg.CHECKPOINT_DIR, "best_model.pth"),
-        help="Path to the model checkpoint to evaluate.",
-    )
-    args = parser.parse_args()
-
-    device = cfg.DEVICE
-    logger.info("Using device: %s", device)
-
-    # Dataset & loader
-    test_dataset = MyDataset(cfg.TEST_DIR, transform=eval_transform)
-    test_loader = DataLoader(
-        test_dataset,
+def make_loader(dataset):
+    use_persistent = cfg.NUM_WORKERS > 0
+    return DataLoader(
+        dataset,
         batch_size=cfg.BATCH_SIZE,
         shuffle=False,
         num_workers=cfg.NUM_WORKERS,
         pin_memory=True,
+        persistent_workers=use_persistent,
+        prefetch_factor=2 if use_persistent else None,
     )
 
-    # Model
-    model = CNN().to(device)
 
-    if not os.path.isfile(args.checkpoint):
-        logger.error("Checkpoint not found: %s", args.checkpoint)
-        raise FileNotFoundError(f"Checkpoint not found: {args.checkpoint}")
-
-    logger.info("Loading checkpoint: %s", args.checkpoint)
-    load_checkpoint(args.checkpoint, model)
-
-    # Inference
+def collect_predictions(model, loader, device):
     model.eval()
     all_preds = []
     all_labels = []
-
     with torch.no_grad():
-        for images, labels in test_loader:
-            images = images.to(device)
+        for images, labels in loader:
+            images = images.to(device, non_blocking=True)
             outputs = model(images)
             preds = outputs.argmax(dim=1).cpu().numpy()
             all_preds.extend(preds)
             all_labels.extend(labels.numpy())
+    return np.array(all_labels), np.array(all_preds)
 
-    all_preds = np.array(all_preds)
-    all_labels = np.array(all_labels)
 
-    # Accuracy
-    accuracy = (all_preds == all_labels).mean() * 100
-    logger.info("Test Accuracy: %.2f%%", accuracy)
+def main():
+    parser = argparse.ArgumentParser(description="Evaluate digit-recognition CNN on A/B/C test sets")
+    parser.add_argument(
+        "--domain",
+        type=str,
+        default="A",
+        choices=cfg.DOMAINS,
+        help="Model domain used for default checkpoint naming.",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Path to the model checkpoint to evaluate.",
+    )
+    args = parser.parse_args()
 
-    # Classification report
-    report = classification_report(all_labels, all_preds, digits=4)
-    logger.info("Classification Report:\n%s", report)
+    domain = args.domain.upper()
+    logger = setup_logger(domain)
 
-    # Confusion matrix
-    cm = confusion_matrix(all_labels, all_preds)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-    fig, ax = plt.subplots(figsize=(8, 8))
-    disp.plot(ax=ax, colorbar=False)
-    plt.title("Confusion Matrix")
-    cm_path = os.path.join(cfg.OUTPUT_DIR, "confusion_matrix.png")
-    plt.savefig(cm_path, bbox_inches="tight")
-    plt.close()
-    logger.info("Confusion matrix saved to %s", cm_path)
+    checkpoint_path = args.checkpoint or os.path.join(cfg.CHECKPOINT_DIR, f"best_model_{domain}.pth")
+
+    device = cfg.DEVICE
+    logger.info("Using device: %s", device)
+    logger.info("Model domain: %s", domain)
+
+    model = CNN().to(device)
+    criterion = nn.CrossEntropyLoss()
+
+    if not os.path.isfile(checkpoint_path):
+        logger.error("Checkpoint not found: %s", checkpoint_path)
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
+    logger.info("Loading checkpoint: %s", checkpoint_path)
+    load_checkpoint(checkpoint_path, model)
+
+    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+
+    for test_domain in cfg.DOMAINS:
+        test_dataset = MyDataset(cfg.get_domain_split_dir(test_domain, "test"), transform=eval_transform)
+        test_loader = make_loader(test_dataset)
+
+        test_loss, test_acc = evaluate(model, test_loader, criterion, device)
+        all_labels, all_preds = collect_predictions(model, test_loader, device)
+
+        logger.info("[%s] Test Loss: %.4f | Test Accuracy: %.2f%%", test_domain, test_loss, test_acc)
+
+        report = classification_report(all_labels, all_preds, digits=4)
+        logger.info("[%s] Classification Report:\n%s", test_domain, report)
+
+        cm = confusion_matrix(all_labels, all_preds)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        fig, ax = plt.subplots(figsize=(8, 8))
+        disp.plot(ax=ax, colorbar=False)
+        plt.title(f"Confusion Matrix ({test_domain})")
+        cm_path = os.path.join(cfg.OUTPUT_DIR, f"confusion_matrix_{test_domain}.png")
+        plt.savefig(cm_path, bbox_inches="tight")
+        plt.close(fig)
+        logger.info("[%s] Confusion matrix saved to %s", test_domain, cm_path)
 
 
 if __name__ == "__main__":

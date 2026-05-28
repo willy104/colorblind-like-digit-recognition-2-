@@ -12,12 +12,15 @@ class MyDataset(Dataset):
     e.g. digit_3_000123.png -> label=3
     '''
 
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, transform=None, file_list=None):
         self.root_dir = root_dir
         self.transform = transform
-        self.image_files = [
-            f for f in os.listdir(root_dir) if f.lower().endswith(".png")
-        ]
+        if file_list is None:
+            self.image_files = sorted(
+                f for f in os.listdir(root_dir) if f.lower().endswith(".png")
+            )
+        else:
+            self.image_files = list(file_list)
 
     def __len__(self):
         return len(self.image_files)
