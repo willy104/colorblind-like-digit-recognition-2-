@@ -91,7 +91,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
 
 def setup_logger(domain):
     os.makedirs(cfg.LOG_DIR, exist_ok=True)
-    logger = logging.getLogger("train")
+    logger = logging.getLogger(f"train_{domain}")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")

@@ -20,7 +20,7 @@ from val import evaluate
 
 def setup_logger(domain):
     os.makedirs(cfg.LOG_DIR, exist_ok=True)
-    logger = logging.getLogger("test")
+    logger = logging.getLogger(f"test_{domain}")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
