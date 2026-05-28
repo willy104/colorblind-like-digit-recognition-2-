@@ -217,22 +217,22 @@ def main():
             "train_acc": train_acc,
             "train_probe_loss": train_probe_loss,
             "train_probe_acc": train_probe_acc,
-            "valA_loss": val_metrics["A"]["loss"],
-            "valA_acc": val_metrics["A"]["acc"],
-            "valB_loss": val_metrics["B"]["loss"],
-            "valB_acc": val_metrics["B"]["acc"],
-            "valC_loss": val_metrics["C"]["loss"],
-            "valC_acc": val_metrics["C"]["acc"],
         }
+        for val_domain in cfg.DOMAINS:
+            row[f"val{val_domain}_loss"] = val_metrics[val_domain]["loss"]
+            row[f"val{val_domain}_acc"] = val_metrics[val_domain]["acc"]
         epoch_metrics_rows.append(row)
 
+        val_log_parts = [
+            f"Val{val_domain} Loss: {row[f'val{val_domain}_loss']:.4f} | "
+            f"Val{val_domain} Acc: {row[f'val{val_domain}_acc']:.2f}%"
+            for val_domain in cfg.DOMAINS
+        ]
         logger.info(
             (
                 "Epoch [%d/%d] | Train Loss: %.4f | Train Acc: %.2f%% | "
                 "Train-Probe Loss: %.4f | Train-Probe Acc: %.2f%% | "
-                "ValA Loss: %.4f | ValA Acc: %.2f%% | "
-                "ValB Loss: %.4f | ValB Acc: %.2f%% | "
-                "ValC Loss: %.4f | ValC Acc: %.2f%%"
+                "%s"
             ),
             epoch,
             cfg.EPOCHS,
@@ -240,12 +240,7 @@ def main():
             train_acc,
             train_probe_loss,
             train_probe_acc,
-            row["valA_loss"],
-            row["valA_acc"],
-            row["valB_loss"],
-            row["valB_acc"],
-            row["valC_loss"],
-            row["valC_acc"],
+            " | ".join(val_log_parts),
         )
 
         checkpoint_path = save_checkpoint(
