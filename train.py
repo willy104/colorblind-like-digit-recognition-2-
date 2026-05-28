@@ -1,14 +1,15 @@
-"""train.py — Training and validation loop for the digit-recognition CNN.
+'''
+train.py — 訓練Training 和 驗證validation loop
 
-Usage:
-    python train.py [--resume checkpoints/checkpoint_epoch10.pth]
+Usage：
+    python train.py [--resume checkpoints/checkpoint_epoch10.pth]  # 有檢查點
 
-The script:
-  1. Loads train and validation datasets from data/train and data/val.
-  2. Trains the CNN for cfg.EPOCHS epochs with validation after each epoch.
-  3. Saves a checkpoint every epoch and keeps the best model (lowest val loss).
-  4. Writes logs to logs/train.log and saves loss/accuracy plots to outputs/.
-"""
+The script：
+  1. train 訓練圖資料源：data/train 和 validation 驗證圖資料源：data/val
+  2. Trains the CNN for cfg.EPOCHS epochs with validation after each epoch  # 訓練共 cfg.EPOCHS 個 epochs 且 每個 epochs 後會驗證一次
+  3. Saves a checkpoint every epoch and keeps the best model (lowest val loss)  # 每個 epochs 後會儲存檢查點 且 保留最佳模型（lowest val_loss）
+  4. Writes logs to logs/train.log and saves loss/accuracy plots to outputs/  # 紀錄 logs 
+'''
 
 import argparse
 import logging
