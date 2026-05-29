@@ -32,7 +32,7 @@ project/
 ├── val.py              # 驗證流程（交叉驗證）
 ├── test.py             # 測試流程（交叉測試）
 ├── infer.py            # 單圖推論 CLI
-├── utils.py            # 工具函式（checkpoint 存取、繪圖）
+├── utils.py            # 工具函式（checkpoint 存取、Excel 指標輸出）
 ├── requirements.txt    # Python 套件需求清單
 └── README.md           # 本說明檔
 ```
