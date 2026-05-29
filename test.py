@@ -1,25 +1,21 @@
 """test.py — Evaluate the best model on the test set.
 
 Usage:
-    python test.py [--checkpoint checkpoints/best_model.pth]
+    python test.py --dataset white_black [--checkpoint checkpoints/white_black/best_model.pth]
 
 The script:
-  1. Loads the test dataset from data/test.
-  2. Loads model weights from the specified checkpoint (default: best_model.pth).
-  3. Computes overall accuracy and per-class classification report.
-  4. Saves a confusion matrix image to outputs/confusion_matrix.png.
-  5. Writes a test log to logs/test.log.
+  1. Loads the test datasets from data/test/<variants>.
+  2. Loads model weights from the specified checkpoint (default: best_model.pth for the variant).
+  3. Computes accuracy for each variant.
+  4. Writes a test log to logs/test_<variant>.log.
 """
 
 import argparse
 import logging
 import os
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
-import matplotlib.pyplot as plt
 
 import config as cfg
 from dataset import MyDataset, eval_transform
@@ -31,18 +27,36 @@ from utils import load_checkpoint
 # Logging setup
 # ---------------------------------------------------------------------------
 
-os.makedirs(cfg.LOG_DIR, exist_ok=True)
-os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+def setup_logging(log_path):
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_path),
+            logging.StreamHandler(),
+        ],
+    )
+    return logging.getLogger(__name__)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(cfg.LOG_DIR, "test.log")),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger(__name__)
+
+def evaluate(model, loader, device):
+    """Compute accuracy (%) for a dataloader."""
+    model.eval()
+    total_correct = 0
+    total_samples = 0
+
+    with torch.no_grad():
+        for images, labels in loader:
+            images, labels = images.to(device, non_blocking=True), labels.to(device, non_blocking=True)
+            outputs = model(images)
+            preds = outputs.argmax(dim=1)
+            total_correct += (preds == labels).sum().item()
+            total_samples += labels.size(0)
+
+    if total_samples == 0:
+        return 0.0
+    return 100.0 * total_correct / total_samples
 
 
 # ---------------------------------------------------------------------------
@@ -52,25 +66,35 @@ logger = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser(description="Evaluate digit-recognition CNN on test set")
     parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=cfg.DATASET_VARIANTS,
+        default=cfg.DATASET_VARIANTS[0],
+        help="Dataset variant used to select the model checkpoint.",
+    )
+    parser.add_argument(
         "--checkpoint",
         type=str,
-        default=os.path.join(cfg.CHECKPOINT_DIR, "best_model.pth"),
+        default=None,
         help="Path to the model checkpoint to evaluate.",
     )
     args = parser.parse_args()
+    dataset_variant = args.dataset
+    if args.checkpoint is None:
+        args.checkpoint = os.path.join(cfg.CHECKPOINT_DIR, dataset_variant, "best_model.pth")
 
     device = cfg.DEVICE
+    logger = setup_logging(os.path.join(cfg.LOG_DIR, f"test_{dataset_variant}.log"))
     logger.info("Using device: %s", device)
 
-    # Dataset & loader
-    test_dataset = MyDataset(cfg.TEST_DIR, transform=eval_transform)
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.BATCH_SIZE,
-        shuffle=False,
-        num_workers=cfg.NUM_WORKERS,
-        pin_memory=True,
-    )
+    use_persistent = cfg.NUM_WORKERS > 0
+    common_loader_kwargs = {
+        "batch_size": cfg.BATCH_SIZE,
+        "num_workers": cfg.NUM_WORKERS,
+        "pin_memory": True,
+        "persistent_workers": use_persistent,
+        "prefetch_factor": 2 if use_persistent else None,
+    }
 
     # Model
     model = CNN().to(device)
@@ -82,40 +106,12 @@ def main():
     logger.info("Loading checkpoint: %s", args.checkpoint)
     load_checkpoint(args.checkpoint, model)
 
-    # Inference
-    model.eval()
-    all_preds = []
-    all_labels = []
-
-    with torch.no_grad():
-        for images, labels in test_loader:
-            images = images.to(device)
-            outputs = model(images)
-            preds = outputs.argmax(dim=1).cpu().numpy()
-            all_preds.extend(preds)
-            all_labels.extend(labels.numpy())
-
-    all_preds = np.array(all_preds)
-    all_labels = np.array(all_labels)
-
-    # Accuracy
-    accuracy = (all_preds == all_labels).mean() * 100
-    logger.info("Test Accuracy: %.2f%%", accuracy)
-
-    # Classification report
-    report = classification_report(all_labels, all_preds, digits=4)
-    logger.info("Classification Report:\n%s", report)
-
-    # Confusion matrix
-    cm = confusion_matrix(all_labels, all_preds)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-    fig, ax = plt.subplots(figsize=(8, 8))
-    disp.plot(ax=ax, colorbar=False)
-    plt.title("Confusion Matrix")
-    cm_path = os.path.join(cfg.OUTPUT_DIR, "confusion_matrix.png")
-    plt.savefig(cm_path, bbox_inches="tight")
-    plt.close()
-    logger.info("Confusion matrix saved to %s", cm_path)
+    for variant in cfg.DATASET_VARIANTS:
+        variant_dir = os.path.join(cfg.TEST_DIR, variant)
+        test_dataset = MyDataset(variant_dir, transform=eval_transform)
+        test_loader = DataLoader(test_dataset, shuffle=False, **common_loader_kwargs)
+        accuracy = evaluate(model, test_loader, device)
+        logger.info("Test Accuracy (%s): %.2f%%", variant, accuracy)
 
 
 if __name__ == "__main__":

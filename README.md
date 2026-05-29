@@ -9,20 +9,30 @@ project/
 │
 ├── data/
 │   ├── train/          # 訓練圖片（digit_X_NNNNNN.png 格式）
+│   │   ├── white_black/
+│   │   ├── rainbow_bw/
+│   │   └── bw_rainbow/
 │   ├── val/            # 驗證圖片
+│   │   ├── white_black/
+│   │   ├── rainbow_bw/
+│   │   └── bw_rainbow/
 │   └── test/           # 測試圖片
+│       ├── white_black/
+│       ├── rainbow_bw/
+│       └── bw_rainbow/
 │
 ├── checkpoints/        # 每個 epoch 的 checkpoint 與最佳模型
 ├── logs/               # 訓練與測試 log 記錄
-├── outputs/            # 曲線圖與混淆矩陣圖
+├── outputs/            # 指標彙整 Excel
 │
 ├── config.py           # 超參數與路徑集中設定
 ├── dataset.py          # 自訂 Dataset 與資料前處理
 ├── model.py            # CNN 模型架構（ConvBlock + BatchNorm + AdaptiveAvgPool）
-├── train.py            # 訓練流程（含驗證、checkpoint、繪圖等）
-├── test.py             # 測試流程（載入最佳模型、混淆矩陣、分類報告）
+├── train.py            # 訓練流程（含交叉驗證與 checkpoint）
+├── val.py              # 驗證流程（交叉驗證）
+├── test.py             # 測試流程（交叉測試）
 ├── infer.py            # 單圖推論 CLI
-├── utils.py            # 工具函式（checkpoint 存取、繪圖）
+├── utils.py            # 工具函式（checkpoint 存取、Excel 指標輸出）
 ├── requirements.txt    # Python 套件需求清單
 └── README.md           # 本說明檔
 ```
@@ -40,9 +50,15 @@ pip install -r requirements.txt
 將圖片放入對應資料夾，檔名格式必須為 `digit_X_NNNNNN.png`（例如 `digit_3_000123.png`）：
 
 ```
-data/train/   ← 訓練集
-data/val/     ← 驗證集
-data/test/    ← 測試集
+data/train/white_black/   ← 訓練集 (約 52000 張)
+data/train/rainbow_bw/    ← 訓練集 (約 52000 張)
+data/train/bw_rainbow/    ← 訓練集 (約 52000 張)
+data/val/white_black/     ← 驗證集 (約 8000 張)
+data/val/rainbow_bw/      ← 驗證集 (約 8000 張)
+data/val/bw_rainbow/      ← 驗證集 (約 8000 張)
+data/test/white_black/    ← 測試集 (約 52000 張)
+data/test/rainbow_bw/     ← 測試集 (約 52000 張)
+data/test/bw_rainbow/     ← 測試集 (約 52000 張)
 ```
 
 若資料原在 Google Drive，可使用 `rclone` 或直接複製同步到本機。
@@ -50,37 +66,35 @@ data/test/    ← 測試集
 ### 3. 訓練
 
 ```bash
-# 全新訓練
-python train.py
+# 全新訓練（指定模型對應資料集）
+python train.py --dataset white_black
 
 # 從 checkpoint 續訓
-python train.py --resume checkpoints/checkpoint_epoch10.pth
+python train.py --dataset white_black --resume checkpoints/white_black/checkpoint_epoch10.pth
 ```
 
 訓練過程中：
-- 每個 epoch 自動儲存 checkpoint 至 `checkpoints/`
-- 驗證 loss 最低時更新 `checkpoints/best_model.pth`
-- Log 輸出至終端與 `logs/train.log`
-- 訓練結束後，損失與準確度曲線圖（train/val）儲存至 `outputs/`
-- 每個 epoch 的 train/val 指標會彙整輸出至 `outputs/epoch_metrics.xlsx`
+- 每個 epoch 自動儲存 checkpoint 至 `checkpoints/<variant>/`
+- 驗證 loss 最低時更新 `checkpoints/<variant>/best_model.pth`
+- 每個 epoch 會做三種驗證資料集的交叉驗證
+- Log 輸出至終端與 `logs/train_<variant>.log`
+- 每個 epoch 的 train 與交叉 val 指標會彙整輸出至 `outputs/<variant>/epoch_metrics.xlsx`
 
 ### 4. 測試
 
 ```bash
-python test.py [--checkpoint checkpoints/best_model.pth]
+python test.py --dataset white_black [--checkpoint checkpoints/white_black/best_model.pth]
 ```
 
 輸出：
-- 整體 Accuracy
-- 各類別 precision / recall / F1 分類報告
-- 混淆矩陣圖（儲存於 `outputs/confusion_matrix.png`）
-- Log 儲存至 `logs/test.log`
+- 三種測試資料集的 Accuracy
+- Log 儲存至 `logs/test_<variant>.log`
 
 ### 5. 單圖推論
 
 ```bash
-python infer.py --image path/to/example.png \
-                [--checkpoint checkpoints/best_model.pth]
+python infer.py --image path/to/example.png --dataset white_black \
+                [--checkpoint checkpoints/white_black/best_model.pth]
 ```
 
 輸出範例：

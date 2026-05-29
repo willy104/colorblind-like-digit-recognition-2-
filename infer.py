@@ -2,8 +2,8 @@
 建立一個指令腳本可辨識「單張圖」
 
 指令 Usage：
-    python infer.py --image path/to/image.png
-                    [--checkpoint checkpoints/best_model.pth]  # 指定模型的 checkpoint 檔案
+    python infer.py --image path/to/image.png --dataset white_black
+                    [--checkpoint checkpoints/white_black/best_model.pth]  # 指定模型的 checkpoint 檔案
 
 執行結果輸出：
 腳本會將預測的數字（0~9）直接印出
@@ -52,12 +52,21 @@ def main():
         help="Path to the input image (PNG/JPEG).",
     )
     parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=cfg.DATASET_VARIANTS,
+        default=cfg.DATASET_VARIANTS[0],
+        help="Dataset variant used to select the model checkpoint.",
+    )
+    parser.add_argument(
         "--checkpoint",
         type=str,
-        default=os.path.join(cfg.CHECKPOINT_DIR, "best_model.pth"),
+        default=None,
         help="Path to the model checkpoint.",
     )
     args = parser.parse_args()
+    if args.checkpoint is None:
+        args.checkpoint = os.path.join(cfg.CHECKPOINT_DIR, args.dataset, "best_model.pth")
 
     device = cfg.DEVICE
     label = predict(args.image, args.checkpoint, device)
