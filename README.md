@@ -56,9 +56,9 @@ data/train/bw_rainbow/    ← 訓練集 (約 52000 張)
 data/val/white_black/     ← 驗證集 (約 8000 張)
 data/val/rainbow_bw/      ← 驗證集 (約 8000 張)
 data/val/bw_rainbow/      ← 驗證集 (約 8000 張)
-data/test/white_black/    ← 測試集 (約 52000 張)
-data/test/rainbow_bw/     ← 測試集 (約 52000 張)
-data/test/bw_rainbow/     ← 測試集 (約 52000 張)
+data/test/white_black/    ← 測試集 (約 10000 張)
+data/test/rainbow_bw/     ← 測試集 (約 10000 張)
+data/test/bw_rainbow/     ← 測試集 (約 10000 張)
 ```
 
 若資料原在 Google Drive，可使用 `rclone` 或直接複製同步到本機。
