@@ -30,6 +30,7 @@ AVG_EVERY = 20  # log average loss/accuracy every N batches
 TRAIN_DIR = os.path.join("data", "train")
 VAL_DIR = os.path.join("data", "val")
 TEST_DIR = os.path.join("data", "test")
+DATASET_VARIANTS = ("white_black", "rainbow_bw", "bw_rainbow")
 
 # Output directories
 CHECKPOINT_DIR = "checkpoints"
