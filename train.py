@@ -112,7 +112,7 @@ def main():
         "num_workers": cfg.NUM_WORKERS,
         "pin_memory": True,
         "persistent_workers": use_persistent,
-        "prefetch_factor": 2 if use_persistent else None,
+        "prefetch_factor": 4 if use_persistent else None,
     }
     train_loader = DataLoader(train_dataset, shuffle=True, **common_loader_kwargs)
 
