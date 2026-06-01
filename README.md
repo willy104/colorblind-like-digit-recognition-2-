@@ -61,6 +61,16 @@ data/test/rainbow_bw/     ← 測試集 (約 10000 張)
 data/test/bw_rainbow/     ← 測試集 (約 10000 張)
 ```
 
+若資料不放在專案內的 `data/`，可設定環境變數 `DATA_ROOT` 指向本機資料根目錄（其下仍需 `train/val/test` 與三種分類資料夾）：
+
+```bash
+# macOS/Linux
+DATA_ROOT=/path/to/local/data python train.py --dataset white_black
+
+# Windows PowerShell
+$env:DATA_ROOT="D:\path\to\local\data"; python train.py --dataset white_black
+```
+
 若資料原在 Google Drive，可使用 `rclone` 或直接複製同步到本機。
 
 ### 3. 訓練
