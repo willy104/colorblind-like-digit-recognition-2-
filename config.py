@@ -38,7 +38,7 @@ LOG_DIR = "logs"
 OUTPUT_DIR = "outputs"
 
 # DataLoader settings
-NUM_WORKERS = 4
+NUM_WORKERS = 12
 '''
 NUM_WORKERS 代表有幾個子程序負責資料載入，每個 worker 會預先載入 prefetch_factor 個 batch，
 有助於 GPU 訓練時不用「等待資料」。
