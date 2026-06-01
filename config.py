@@ -29,7 +29,11 @@ AVG_EVERY = 20  # log average loss/accuracy every N batches
 # Data paths (relative to data root)
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DATA_ROOT = os.path.join(PROJECT_ROOT, "data")
-DATA_ROOT = os.path.abspath(os.path.expanduser(os.environ.get("DATA_ROOT", DEFAULT_DATA_ROOT)))
+DATA_ROOT_ENV = os.environ.get("DATA_ROOT")
+if DATA_ROOT_ENV:
+    DATA_ROOT = os.path.abspath(os.path.expanduser(DATA_ROOT_ENV))
+else:
+    DATA_ROOT = DEFAULT_DATA_ROOT
 TRAIN_DIR = os.path.join(DATA_ROOT, "train")
 VAL_DIR = os.path.join(DATA_ROOT, "val")
 TEST_DIR = os.path.join(DATA_ROOT, "test")
