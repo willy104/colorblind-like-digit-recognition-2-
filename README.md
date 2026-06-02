@@ -68,7 +68,7 @@ data/test/bw_rainbow/     ← 測試集 (約 10000 張)
 DATA_ROOT=/path/to/local/data python train.py --dataset white_black
 
 # Windows PowerShell
-$env:DATA_ROOT="D:\path\to\local\data"; python train.py --dataset white_black
+$env:DATA_ROOT="C:\你的\資料路徑"; python train.py --dataset white_black
 ```
 
 若資料原在 Google Drive，可使用 `rclone` 或直接複製同步到本機。
